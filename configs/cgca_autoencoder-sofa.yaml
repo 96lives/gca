@@ -1,0 +1,136 @@
+###########
+# Dataset #
+###########
+dataset: cgca_autoencoder_shapenet
+eval_datasets: [
+    [cgca_autoencoder_shapenet, val],
+]
+test_datasets: [
+  [cgca_autoencoder_shapenet, test],
+]
+data_root: ./data/cgca_shapenet
+obj_class: sofa
+implicit_rep: sdf  # either udf or occ
+data_dim: 3
+
+implicit_input_cnt: 200000
+query_cnt: 4096
+surface_cnt: 10000
+
+voxel_size: 0.03125
+max_dist: 0.03125 # the value is map to 1 to the neural net output
+query_dist_filter_rate: 1.5 # filters query points that have distance over this value
+
+epoch: 1000000
+num_workers: 6
+in_memory: False
+
+#########
+# Model #
+#########
+model: cgca_autoencoder
+z_dim: 32
+conv_z: True
+encoder:
+  input_dim: 4  # coordinates + implicit value
+  hidden_dim: 128
+  num_blocks: 4
+decoder:
+  hidden_dim: 128
+  num_blocks: 4
+  pool: max
+  leaky_activation: True
+
+#########
+# Train #
+#########
+reg_loss_weight: 0.001
+batch_size: 4
+
+optimizer:
+  type: Adam
+  options:
+    lr: 0.0005
+    weight_decay: 0.
+
+clip_grad:
+  type: norm
+  options:
+    max_norm: 0.5
+
+lr_scheduler:
+  type: StepLR
+  options:
+    step_size: 100000000
+    gamma: 1.0
+
+###########
+# Summary #
+###########
+summary_step: 1000
+ckpt_step: 50000
+
+#################
+# Visualization #
+#################
+vis_batch_size: 1
+min_vis_step: 0
+upsample: 4
+
+vis:
+  indices: 7
+  vis_2d:
+    step: 50000
+    axis_ranges: [
+      [-32, 32],
+      [-32, 32],
+      [-32, 32],
+    ]
+    height: 400
+    width: 400
+    project_axis: z
+    project_center: 0
+    project_thres: 1
+    alpha: 1
+    save_tensor: False
+    save_tensor_interval: 1000000
+  vis_mesh:
+    step: 100000
+    alpha: 0.01
+    march_th: 0.5
+
+
+#########
+# Utils #
+#########
+device: cuda
+seed:
+empty_cache_step: 100
+
+#########
+# Debug #
+#########
+# every step is visualized
+debug_vis: False
+# every step is evaluated
+debug_eval: False
+# fit only specified data point
+# if not used, leave as blank (None)
+overfit_one_ex:
+
+############
+# Evaluate #
+############
+eval_step: 5000
+min_eval_step: 0
+eval_size: 256
+eval_batch_size: 4
+
+########
+# Test #
+########
+test_step: 50000000000
+min_test_step: 5000000
+test_batch_size: 2
+test_sample_num: 2048
+test_dist_threshold: 0.5

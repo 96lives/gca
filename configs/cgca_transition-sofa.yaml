@@ -1,0 +1,167 @@
+###########
+# Dataset #
+###########
+dataset: cgca_transition_shapenet
+eval_datasets: [
+    [cgca_transition_shapenet, val],
+]
+test_datasets: [
+  [cgca_transition_shapenet, test],
+]
+data_root: ./data/cgca_shapenet
+embedding_root: ./data/embeddings/shapenet/sofa-vox_64-sdf-step_700k
+obj_class: sofa
+data_dim: 3
+
+max_sphere_centers: 1
+sphere_radius: 0.5
+surface_cnt: 1024
+buffer_size: 1024
+mean_vox_points: 3000
+voxel_overflow: 20000
+
+voxel_size: 0.03125
+transform:
+
+epoch: 1000000
+num_workers: 6
+
+#########
+# Model #
+#########
+model: cgca_transition
+padding: 3
+pad_type: hypercross
+z_dim: 32
+backbone:
+  name: Mink16UNet34C
+  kernels: [
+      7, 5, 5, 3, 3,
+      3, 3, 3, 3, 3
+  ]
+  init_pretrained:
+  in_channels:
+  out_channels:
+
+max_phase: 30
+equilibrium_max_phase: 20
+sampling_scheme: bernoulli
+
+#########
+# Train #
+#########
+infusion_scheduler:
+  type: linear
+  initial_rate: 0.1
+  speed: 0.005
+
+sigma_scheduler:
+  type: exponential
+  initial_rate: -1.
+  speed: -0.01
+
+embedding_loss_weight: 0.01
+batch_size: 32
+
+optimizer:
+  type: Adam
+  options:
+    lr: 0.0005
+    weight_decay: 0.
+
+clip_grad:
+  type: norm
+  options:
+    max_norm: 0.5
+
+lr_scheduler:
+  type: StepLR
+  options:
+    step_size: 100000000
+    gamma: 1.0
+
+completion_rate: 0.95
+
+###########
+# Summary #
+###########
+summary_step: 1000
+ckpt_step: 50000
+
+#################
+# Visualization #
+#################
+vis_batch_size: 1
+min_vis_step: 50000
+vis:
+  indices: 3
+  vis_collated_imgs:
+    step: 25000
+    vis_2d:
+      axis_ranges: [
+        [ -32, 32 ],
+        [ -32, 32 ],
+        [ -32, 32 ],
+      ]
+      height: 300
+      width: 300
+      project_axis: z
+      project_center: 0
+      project_thres: 1
+      alpha: 1.
+      save_tensor: False
+      save_tensor_interval: 1000000
+    vis_3d:
+      axis_ranges: [
+        [ -32, 32 ],
+        [ -32, 32 ],
+        [ -32, 32 ],
+      ]
+      height: 300
+      width: 300
+      alpha: 0.3
+      scene_capture: False
+      save_tensor: False
+      save_tensor_interval: 1000000
+
+
+#########
+# Utils #
+#########
+device: cuda
+seed: 0
+empty_cache_step: 20
+
+#########
+# Debug #
+#########
+# every step is visualized
+debug_vis: False
+# every step is evaluated
+debug_eval: False
+# fit only specified data point
+# if not used, leave as blank (None)
+overfit_one_ex:
+
+############
+# Evaluate #
+############
+eval_step: 10000
+min_eval_step: 40000
+eval_size: 128
+eval_batch_size: 4
+max_eval_phase: 30
+
+########
+# Test #
+########
+test_step: 100000
+min_test_step: 200000
+test_batch_size: 2
+upsample: 4
+test_mode_seeking_phase: 5
+test_trials: 10
+test_dist_threshold: 0.5
+test_sample_nums: [2048]
+cache_only: True
+test_save_mesh: False
