@@ -1,13 +1,10 @@
-# Code for Probabilistic Implicit Scene Completion (ICLR 2022)
+# Generative Cellular Automata (GCA) 
 
 
 
 ![Alt text](media/teaser.jpg?raw=true "Title")
 
-This repository contains code for reproducing the results for [probabilistic implicit scene completion](https://openreview.net/forum?id=BnQhMqDfcKG), which is accepted to ICLR 2022.
-Currently, this repo contains training and testing results on ShapeNet sofa dataset for our model, named continuous Generative Cellular Automata (cGCA).
-
-(2022/01/29) The paper has been accepted to ICLR 2022 as spotlight session. In the next several weeks, we are planning on moving the repo with further detailed instructions on how to reproduce the results. I'm also planning on merging the repo with our previous work [Generative Cellular Automata](https://openreview.net/forum?id=rABUmU3ulQh) (which this repo already contains). So stay tuned!! If you have any questions, please contact 96lives@snu.ac.kr :) 
+This repository contains code for our work [Generative Cellular Automata](https://openreview.net/forum?id=rABUmU3ulQh) (GCA) and [continuous Generative Cellular Automata](https://openreview.net/forum?id=BnQhMqDfcKG) (cGCA), which are accepted to ICLR 2021 and 2022 as spotlight, respectively. Currently, this repo contains training and testing results on ShapeNet sofa dataset for GCA and cGCA. In the next several weeks, we are planning on moving the repo with further detailed instructions on how to reproduce the results. So stay tuned!! If you have any questions, please contact 96lives@snu.ac.kr :) 
 
 
 
@@ -121,15 +118,26 @@ python main --config configs/gca-sofa.yaml -l log/gca-sofa
 
 ## Citation
 
-If you find this repo useful for your research, please cite 
+If you find this repo useful for your research or use any part of the code, please cite 
+
 ```
 @inproceedings{
-   anonymous2022probabilistic,
-   title={Probabilistic Implicit Scene Completion},
-   author={Anonymous},
-   booktitle={Submitted to The Tenth International Conference on Learning Representations },
-   year={2022},
-   url={https://openreview.net/forum?id=BnQhMqDfcKG},
-   note={under review}
+	zhang2021gca,
+	title={Learning to Generate 3D Shapes with Generative Cellular Automata},
+	author={Dongsu Zhang and Changwoon Choi and Jeonghwan Kim and Young Min Kim},
+	booktitle={International Conference on Learning Representations},
+	year={2021},
+	url={https://openreview.net/forum?id=rABUmU3ulQh}
+}
+```
+
+```
+@inproceedings{
+	zhang2022cgca,
+	title={Probabilistic Implicit Scene Completion},
+	author={Dongsu Zhang and Changwoon Choi and Inbum Park and Young Min Kim},
+	booktitle={International Conference on Learning Representations},
+	year={2022},
+	url={https://openreview.net/forum?id=BnQhMqDfcKG}
 }
 ```
