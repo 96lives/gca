@@ -6,6 +6,8 @@
 
 This repository contains code for our work [Generative Cellular Automata](https://openreview.net/forum?id=rABUmU3ulQh) (GCA) and [continuous Generative Cellular Automata](https://openreview.net/forum?id=BnQhMqDfcKG) (cGCA), which are accepted to ICLR 2021 and 2022 as spotlight, respectively. Currently, this repo contains training and testing results on ShapeNet sofa dataset for GCA and cGCA. In the next several weeks, we are planning on moving the repo with further detailed instructions on how to reproduce the results. So stay tuned!! If you have any questions, please contact 96lives@snu.ac.kr :) 
 
+(22/03/23) We plan on releasing the pretrained models + dataset for the paper before April
+
 
 
 ## Installation & Data Preparation
