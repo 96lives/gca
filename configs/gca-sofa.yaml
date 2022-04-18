@@ -9,7 +9,7 @@ test_datasets: [
   [cgca_transition_shapenet, test],
 ]
 data_root: ./data/cgca_shapenet
-embedding_root:
+embedding_root: ./data/embeddings/shapenet/sofa-vox_64-sdf-step_700k
 obj_class: sofa
 data_dim: 3
 
@@ -155,6 +155,6 @@ test_batch_size: 2
 test_mode_seeking_phase: 0
 test_trials: 10
 test_dist_threshold: 0.5
-test_sample_nums: [2048, 16384]
+test_sample_nums: [2048]
 cache_only: True
 test_save_mesh: False

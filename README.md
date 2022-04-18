@@ -2,21 +2,26 @@
 
 
 
-![Alt text](media/teaser.jpg?raw=true "Title")
+![Alt text](media/generations.gif?raw=true "Title")
 
-This repository contains code for our work [Generative Cellular Automata](https://openreview.net/forum?id=rABUmU3ulQh) (GCA) and [continuous Generative Cellular Automata](https://openreview.net/forum?id=BnQhMqDfcKG) (cGCA), which are accepted to ICLR 2021 and 2022 as spotlight, respectively. Currently, this repo contains training and testing results on ShapeNet sofa dataset for GCA and cGCA. In the next several weeks, we are planning on moving the repo with further detailed instructions on how to reproduce the results. So stay tuned!! If you have any questions, please contact 96lives@snu.ac.kr :) 
+![Alt text](media/scene_completions.gif?raw=true "Title")
 
-(22/03/23) We plan on releasing the pretrained models + dataset for the paper before April
+This repository contains code for our work ["Learning to Generate 3D Shapes with Generative Cellular Automata"](https://openreview.net/forum?id=rABUmU3ulQh) and [Probabilistic Implicit Scene Completion](https://openreview.net/forum?id=BnQhMqDfcKG), which are accepted to ICLR 2021 and 2022 (spotlight), respectively. The first paper introduces a model named Generative Cellular Automata (GCA), which formulates the shape generation process as sampling from the transition kernel of a Markov chain, where the sampling chain eventually evolves to the full shape of the learned distribution. The transition kernel employs the local update rules of cellular automata, effectively reducing the search space in a high-resolution 3D grid space by exploiting the connectivity and sparsity of 3D shapes. 
+
+The second paper introduces a model name continuous Generative Cellular Automata (cGCA), which extends GCA to produce continuous geometry from incomplete point cloud. Instead of learning a transition kernel on sparse voxels as in GCA, cGCA learns the transition kernel operating on sparse voxel embedding, which additionally contains a local latent code for each occupied cell. Decoding the last state (sparse voxel embedding) produces continuous surface. Since cGCA extends the scalability, our work is the first work to tackle the problem of completing multiple continuous surfaces in scene level. 
+
+The repository currently contains pretrained models and datasets for the experiments on ShapeNet and ShapeNet scenes in [Probabilistic Implicit Scene Completion](https://openreview.net/forum?id=BnQhMqDfcKG). Please contact 96lives@snu.ac.kr if you have any questions :)
+
 
 
 
 ## Installation & Data Preparation
 
-1. **Anaconda and environment installations for training & testing**
+1. **Anaconda environment installations for training & testing**
 
 ```
-conda create -n cgca python=3.8
-conda activate cgca
+conda create -n gca python=3.8
+conda activate gca
 
 # install torch
 # for cuda 11.2
@@ -24,101 +29,145 @@ pip install torch==1.7.1+cu110 torchvision==0.8.2+cu110 -f https://download.pyto
 # for cuda 10.2
 pip install torch==1.7.1 torchvision==0.8.2
 
-# install mink v0.5.0 (versions above 0.5.0 are not tested and probabiliy won't work)
+# install MinkowskiEngine (sparse tensor processing library)
+# the model was trained on v0.5.0, but the code runs on v0.5.4 (the latest version as of 22/04/18) as well
 conda install openblas-devel -c anaconda 
-git clone https://github.com/NVIDIA/MinkowskiEngine
-cd MinkowskiEngine
-pip install ./ -v --no-deps --install-option="--blas=openblas" --install-option="--blas_include_dirs=${CONDA_PREFIX}/include" 
+export CXX=g++-7
+pip install -U git+https://github.com/NVIDIA/MinkowskiEngine -v --no-deps --install-option="--blas_include_dirs=${CONDA_PREFIX}/include" --install-option="--blas=openblas"
 
 # install all other requirements
 pip install -r requirements.txt
+
+# install torch-scatter
+# for cuda 10.2 (--no-index option is quite crucial), for other cuda versions you can find installation guide in https://github.com/rusty1s/pytorch_scatter
+pip install --no-index torch-scatter -f https://pytorch-geometric.com/whl/torch-1.7.1+cu101.html
 ```
-Please install [MinkowskiEngine](https://github.com/NVIDIA/MinkowskiEngine) in version 0.5.0, otherwise the code might not work as expected.
-The repo was tested with NVIDIA 2080ti GPU (11GB).
+The repo was tested with NVIDIA 2080ti GPU (11GB). 
+
 
 
 2. **Data preparation and Pretrained Models**
 
-Download the [link](https://drive.google.com/file/d/1QnrPQQEeeasGmrcBf2yu0T2YvAVI8GqJ/view?usp=sharing) for ShapeNet sofa dataset and its preprocessed sparse voxel embedding.
-The pretrained models are in the [link](https://drive.google.com/file/d/1qF-F2FWMMUWhtoYbq-ViqUPc5tGma58v/view?usp=sharing).
-Place the files in the repo root.
-The directory should look like the following:
+[TODO: Link] contains the datasets (sdf & preprocessed sparse voxel embedding) and pretrained models. Place the files with directory as below. We call the shapenet scene datasets as synthetic as abbreviation. 
 
 ```
 \cgca
    - main.py
    ...
    - data/
-      - cgca_shapenet/
-         ...
-      - embeddings/
-         ...
+      - shapenet_sdf/
+      	- sofa
+      	- chair
+      	- table
+      - synthetic/ (we refer to shapenet scene as synthetic for abbreviation)
+      	- 
+      - embeddings/   (contains preprocessed sparse voxel embeddings)
+      	- shapenet/
+      		- sofa-vox_64-sdf-step_700k/
+         	- chair-vox_64-sdf-step_500k/
+         	- table-vox_64-sdf-step_500k/
+         - synthetic/
+         	- vox_64-step_10k/
    - pretrained_models/
       - sofa_transition
          ...
 ```
 
-## Training 
-![Alt text](media/method_overview.jpg?raw=true "Title")
-1. Training autoencoder for sparse voxel embedding
+For shapenet embeddings we use 
+
+
+
+# Training 
+
+We provide training scripts for GCA and cGCA on shapenet/shapenet scene dataset.
+
+
+
+## Training GCA
+
+![Alt text](media/gca_method_overview.png?raw=true "Title")
+
+You can train the GCA by running,  
+
+```
+python main.py --config configs/gca-sofa.yaml -l log/gca-sofa
+```
+
+For other datasets/configurations you may use other configs. Note that GCA only uses the occupancies of the sparse voxels in the dataset, but the released dataset contains the local embeddings as well. If you want to create your own dataset, you only need coordinates of occupied cells of the surface.
+
+
+
+## Training cGCA
+
+![Alt text](media/cgca_method_overview.jpg?raw=true "Title")
+
+Training cGCA works in 2 steps. 
+
+1. **Training autoencoder for sparse voxel embedding**
 
 To train the autoencoder model, run
 ```
-python main --config configs/cgca_autoencoder-sofa.yaml -l log/autoencoder-sofa
+python main.py --config configs/cgca_autoencoder-sofa.yaml -l log/autoencoder-sofa
 ```
 
-2. Training the cGCA transition model
+2. **Training the cGCA transition model**
 
-You do not need to train the autoencoder from scratch to train the transition model.
-We have already preprocessed the ground truth sparse voxel embedding for the dataset in the above data preparation step.
-The sparse voxel embeddings and pretrained autoencoder models (with configs) are in `data/embeddings/shapenet/sofa`
+You do not need to train the autoencoder from scratch to train the transition model. We have already preprocessed the ground truth sparse voxel embedding for the dataset in the above data preparation step. The sparse voxel embeddings and pretrained autoencoder models (with configs) are in `data/embeddings/shapenet/{obj_class}` for shapenet dataset or `data/embeddings/synthetic` for shapenet scene dataset.
+
 To train the transition model, run
+
 ```
-python main --config configs/cgca_transition-sofa.yaml -l log/transition-sofa
+python main.py --config configs/cgca_transition-sofa.yaml -l log/transition-sofa
 ```
 
-3. Log visualization
+3. **Log visualization** 
 
 The log files for the tensorboard visualization is available on the `log` directory.
 To view the logs, run
+
 ```
 tensorboard --logdir ./log
 ```
 and enter the corresponding website with port on your web browser.
 
 
-## Testing cGCA
+
+# Testing 
+
 Download the pretrained models as described in the above.
+
+
+
+## Testing GCA
+
+
+
+## Testing cGCA (TODO: make it in one script)
+
+
+
 For the efficiency of vRAM usage, we test the cGCA in 2 step procedure.
 
 1. Creating the last sparse voxel embedding 
 
-This procedure iterates by transitions and caches the last sparse voxel embedding (s^{T+T'} in the main paper).
+This procedure iterates by transitions and caches the last sparse voxel embedding ($s^{T+T'}$  in the main paper).
 ```
-python main --test --resume-ckpt pretrained_models/sofa_transition/ckpts/ckpt-step-200000 --override "cache_only=True" -l log/sofa_test
+python main.py --test --resume-ckpt pretrained_models/sofa_transition/ckpts/ckpt-step-200000 --override "cache_only=True" -l log/sofa_test
 ```
 2. Testing the metrics (this also generates meshes)
 
-This procedure decodes the cached sparse voxel embedding s^{T+T'}.
+This procedure decodes the cached sparse voxel embedding $s^{T+T'}$ .
 You can find the reconstructed meshes (obj files) in the `log/sofa_test/test_save/step-200000/mesh/initial_mesh` folder.
 
 ```
-python main --test --resume-ckpt pretrained_models/sofa_transition/ckpts/ckpt-step-200000 --override "cache_only=False" -l log/sofa_test
+python main.py --test --resume-ckpt pretrained_models/sofa_transition/ckpts/ckpt-step-200000 --override "cache_only=False" -l log/sofa_test
 ```
 
 
 
-# Training GCA
-
-We also added the code for baseline the original [Generative Cellular Automata](https://openreview.net/forum?id=rABUmU3ulQh) (GCA), published at ICLR 2021. You can train the model by running 
-
-```
-python main --config configs/gca-sofa.yaml -l log/gca-sofa
-```
 
 
-
-## Citation
+# Citation
 
 If you find this repo useful for your research or use any part of the code, please cite 
 
@@ -143,3 +192,9 @@ If you find this repo useful for your research or use any part of the code, plea
 	url={https://openreview.net/forum?id=BnQhMqDfcKG}
 }
 ```
+
+
+
+# Acknowledgements
+
+Our work is partially based on the open source work: [MinkowskiEngine](https://github.com/NVIDIA/MinkowskiEngine), [torch-scatter](https://github.com/rusty1s/pytorch_scatter), [deep sdf](https://github.com/facebookresearch/DeepSDF) [convolutional occupancy networks](https://github.com/autonomousvision/convolutional_occupancy_networks). We highly appreciate their contributions. 

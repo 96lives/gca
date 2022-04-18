@@ -13,9 +13,5 @@ psutil
 pdbpp
 scikit-learn
 pymcubes
-open3d
 natsort
-pykdtree
-cython
-
-
+trimesh
