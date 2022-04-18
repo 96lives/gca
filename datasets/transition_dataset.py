@@ -3,6 +3,7 @@ import os
 import random
 import numpy as np
 import MinkowskiEngine as ME
+import shutil
 from glob import glob
 from tqdm import tqdm
 from datasets.base_dataset import BaseDataset
@@ -52,7 +53,7 @@ class TransitionDataset(BaseDataset):
 		)
 		vis_dir = os.path.join(
 			self.config['log_dir'], 'test_save',
-			'step-{}'.format(step + 1), 'vis'
+			'step-{}'.format(step), 'vis'
 		)
 		os.makedirs(vis_dir, exist_ok=True)
 		input_imgs = tensors2tensor_imgs(
@@ -102,7 +103,7 @@ class TransitionDataset(BaseDataset):
 			# cache dicts
 			cache_dir = os.path.join(
 				self.config['log_dir'], 'test_save',
-				'step-{}'.format(step + 1), 'cache'
+				'step-{}'.format(step), 'cache'
 			)
 			cache_dicts = model.sparsetensors2cache_dicts(s)
 			for cache_dict, file_name in zip(cache_dicts, data['file_name']):
@@ -304,50 +305,59 @@ class TransitionShapenetDataset(TransitionDataset):
 		mmd_calculator = {k: MMDCalculator(testset_dict[k]) for k in testset_dict.keys()}
 		for test_step, data in tqdm(enumerate(data_loader)):
 			batch_size = len(data['state_feat'])
-			if self.config.get('cache_only'):
-				self.cache(model, data, data['file_name'], step)
-			else:
-				cache_dicts = model.load_cache(step, data['file_name'])
-				final_pc_dict = defaultdict(list)
-				for trial, cache_dicts_single_trial in enumerate(cache_dicts):
-					s = model.cache_dicts2sparse_tensor(cache_dicts_single_trial)
-					s_pc_dict, mesh_dict = model.get_pointcloud(s, test_sample_nums, return_mesh=True)
-					for sample_num in test_sample_nums:
-						final_pc_dict[sample_num].append(s_pc_dict[sample_num])
-
-					mesh_save_dir = os.path.join(
-						self.config['log_dir'], 'test_save',
-						'step-{}'.format(step), 'mesh'
-					)
-					for k, meshes in mesh_dict.items():
-						for batch_idx, mesh in enumerate(meshes):
-							file_name = data['file_name'][batch_idx]
-							os.makedirs(os.path.join(mesh_save_dir, k), exist_ok=True)
-							mesh.export(os.path.join(mesh_save_dir, k, '{}_{}.obj'.format(file_name, trial)))
-
-				final_pc_dict = {k: list(zip(*final_pc_dict[k])) for k in final_pc_dict.keys()}
-				partial = [partials[fn].to(self.device) for fn in data['file_name']]
+			self.cache(model, data, data['file_name'], step)  # cache sparse voxel embedding
+			torch.cuda.empty_cache()  # saves memory
+			cache_dicts = model.load_cache(step, data['file_name'])
+			final_pc_dict = defaultdict(list)
+			for trial, cache_dicts_single_trial in enumerate(cache_dicts):
+				s = model.cache_dicts2sparse_tensor(cache_dicts_single_trial)
+				s_pc_dict, mesh_dict = model.get_pointcloud(s, test_sample_nums, return_mesh=True)
 				for sample_num in test_sample_nums:
-					for batch_idx in range(batch_size):
-						pred_coords_down = torch.stack(final_pc_dict[sample_num][batch_idx], dim=0).to(self.device)
-						tmds[sample_num] += [mutual_difference(pred_coords_down)]
-						uhds[sample_num] += [unidirected_hausdorff_distance(partial[batch_idx], pred_coords_down)]
-						mmd_calculator[sample_num].add_generated_set(pred_coords_down)
-				torch.cuda.empty_cache()
+					final_pc_dict[sample_num].append(s_pc_dict[sample_num])
 
-		if self.config.get('cache_only') is False:
-			# write to tensorboard
+				mesh_save_dir = os.path.join(
+					self.config['log_dir'], 'test_save',
+					'step-{}'.format(step), 'mesh'
+				)
+				for k, meshes in mesh_dict.items():
+					for batch_idx, mesh in enumerate(meshes):
+						file_name = data['file_name'][batch_idx]
+						os.makedirs(os.path.join(mesh_save_dir, k), exist_ok=True)
+						mesh.export(os.path.join(mesh_save_dir, k, '{}_{}.obj'.format(file_name, trial)))
+
+			# convert trials x batch_size -> batch_size x trials
+			final_pc_dict = {k: list(zip(*final_pc_dict[k])) for k in final_pc_dict.keys()}  # change to B x trials
+			partial = [partials[fn].to(self.device) for fn in data['file_name']]
 			for sample_num in test_sample_nums:
-				mmd = mmd_calculator[sample_num].calculate_mmd()
-				tmd = np.array(tmds[sample_num]).mean()
-				uhd = np.array(uhds[sample_num]).mean()
-				model.scalar_summaries['metrics/mmd-{}'.format(sample_num)] += [mmd]
-				model.list_summaries['metrics/mmd_historgram-{}'.format(sample_num)] += mmd_calculator[sample_num].dists
-				model.scalar_summaries['metrics/tmd-{}'.format(sample_num)] += [tmd]
-				model.list_summaries['metrics/tmd_historgram-{}'.format(sample_num)] += tmds[sample_num]
-				model.scalar_summaries['metrics/uhd-{}'.format(sample_num)] += [uhd]
-				model.list_summaries['metrics/uhd_histogram-{}'.format(sample_num)] += uhds[sample_num]
-				print('mmd-{}: {}\ntmd-{}: {}\nuhd-{}: {}'.format(sample_num, mmd, sample_num, tmd, sample_num, uhd))
+				for batch_idx in range(batch_size):
+					try:
+						pred_coords_down = torch.stack(final_pc_dict[sample_num][batch_idx], dim=0).to(self.device)
+					except:
+						breakpoint()
+					tmds[sample_num] += [mutual_difference(pred_coords_down)]
+					uhds[sample_num] += [unidirected_hausdorff_distance(partial[batch_idx], pred_coords_down)]
+					mmd_calculator[sample_num].add_generated_set(pred_coords_down)
+			torch.cuda.empty_cache()
+
+			cache_dir = os.path.join(
+				self.config['log_dir'], 'test_save',
+				'step-{}'.format(step), 'cache'
+			)
+			shutil.rmtree(cache_dir, ignore_errors=True)
+
+
+		# write to tensorboard
+		for sample_num in test_sample_nums:
+			mmd = mmd_calculator[sample_num].calculate_mmd()
+			tmd = np.array(tmds[sample_num]).mean()
+			uhd = np.array(uhds[sample_num]).mean()
+			model.scalar_summaries['metrics/mmd-{}'.format(sample_num)] += [mmd]
+			model.list_summaries['metrics/mmd_historgram-{}'.format(sample_num)] += mmd_calculator[sample_num].dists
+			model.scalar_summaries['metrics/tmd-{}'.format(sample_num)] += [tmd]
+			model.list_summaries['metrics/tmd_historgram-{}'.format(sample_num)] += tmds[sample_num]
+			model.scalar_summaries['metrics/uhd-{}'.format(sample_num)] += [uhd]
+			model.list_summaries['metrics/uhd_histogram-{}'.format(sample_num)] += uhds[sample_num]
+			print('mmd-{}: {}\ntmd-{}: {}\nuhd-{}: {}'.format(sample_num, mmd, sample_num, tmd, sample_num, uhd))
 
 		model.write_dict_summaries(step)
 		model.train(training)
@@ -413,6 +423,7 @@ class SceneDataset(TransitionDataset):
 					chamfer_l1s.append(chamfer_l1)
 				file_names.extend(data['file_name'])
 				torch.cuda.empty_cache()
+
 
 		if self.config.get('cache_only') is False:
 			# write to tensorboard

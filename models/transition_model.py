@@ -99,10 +99,6 @@ class TransitionModel(Model, ABC):
 		)
 		cache_dir = os.path.join(step_dir, 'cache')
 
-		# for backwards compatibility
-		if not os.path.exists(cache_dir):
-			cache_dir = os.path.join(step_dir, 'latent')
-
 		data_dicts = []
 		for file_name in file_names:
 			file_paths = sorted(glob(os.path.join(cache_dir, file_name + '*.pt')))

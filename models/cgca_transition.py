@@ -390,7 +390,7 @@ class CGCATransitionModel(TransitionModel):
 		for sample_num in sample_nums:
 			for qp, pred in zip(query_points, preds):
 				qp = qp[torch.abs(pred) < dist_thres].cpu().float() * self.config['voxel_size']
-				ret[sample_num] = [downsample(qp, sample_num)]
+				ret[sample_num] += [downsample(qp, sample_num)]
 		torch.cuda.empty_cache()
 		if return_mesh:
 			return ret, meshes

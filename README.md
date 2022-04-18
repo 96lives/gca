@@ -46,6 +46,7 @@ The repo was tested with NVIDIA 2080ti GPU (11GB).
 
 
 
+
 2. **Data preparation and Pretrained Models**
 
 [TODO: Link] contains the datasets (sdf & preprocessed sparse voxel embedding) and pretrained models. Place the files with directory as below. We call the shapenet scene datasets as synthetic as abbreviation. 
@@ -67,13 +68,13 @@ The repo was tested with NVIDIA 2080ti GPU (11GB).
          	- chair-vox_64-sdf-step_500k/
          	- table-vox_64-sdf-step_500k/
          - synthetic/
-         	- vox_64-step_10k/
+         	- vox_64-step_100k/
    - pretrained_models/
       - sofa_transition
          ...
 ```
 
-For shapenet embeddings we use 
+For embeddings we use 10 random translations for data augmentation.
 
 
 
@@ -135,35 +136,13 @@ and enter the corresponding website with port on your web browser.
 # Testing 
 
 Download the pretrained models as described in the above.
-
-
-
-## Testing GCA
-
-
-
-## Testing cGCA (TODO: make it in one script)
-
-
-
-For the efficiency of vRAM usage, we test the cGCA in 2 step procedure.
-
-1. Creating the last sparse voxel embedding 
-
-This procedure iterates by transitions and caches the last sparse voxel embedding ($s^{T+T'}$  in the main paper).
-```
-python main.py --test --resume-ckpt pretrained_models/sofa_transition/ckpts/ckpt-step-200000 --override "cache_only=True" -l log/sofa_test
-```
-2. Testing the metrics (this also generates meshes)
-
-This procedure decodes the cached sparse voxel embedding $s^{T+T'}$ .
-You can find the reconstructed meshes (obj files) in the `log/sofa_test/test_save/step-200000/mesh/initial_mesh` folder.
+For example, to run shapenet sofa results, run
 
 ```
-python main.py --test --resume-ckpt pretrained_models/sofa_transition/ckpts/ckpt-step-200000 --override "cache_only=False" -l log/sofa_test
+python main.py --test --resume-ckpt pretrained_models/sofa_transition/ckpts/ckpt-step-200000 -l log/sofa_test
 ```
 
-
+This script 1) calculates the metrics used in the paper, 2) creates meshes in `log/sofa_test/step-199999/mesh` 3) creates images of voxels using matplotlib in `log/sofa_test/step-199999/vis`. For scene, we do not provide images.  
 
 
 

@@ -443,7 +443,7 @@ class CGCAAutoencoder(Model):
 			# save meshes
 			mesh_save_dir = os.path.join(
 				self.config['log_dir'],
-				'meshes', 'step-{}'.format(step + 1)
+				'meshes', 'step-{}'.format(step)
 			)
 			for k, meshes in mesh_dict.items():
 				for batch_idx, mesh in enumerate(meshes):
