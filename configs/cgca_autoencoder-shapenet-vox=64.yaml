@@ -75,7 +75,7 @@ ckpt_step: 50000
 #################
 vis_batch_size: 1
 min_vis_step: 0
-upsample: 4
+upsample: 2
 
 vis:
   indices: 7
@@ -97,7 +97,14 @@ vis:
   vis_mesh:
     step: 100000
     alpha: 0.01
-    march_th: 0.5
+    march_th: 0.2
+    mesh_th: 0.2
+    refine_step: 500
+    simplify: True
+    simplify_scene: False
+    simplify_face_cnt: 10000
+    smooth: False
+    smooth_iter: 1
 
 
 #########
@@ -134,3 +141,5 @@ min_test_step: 5000000
 test_batch_size: 2
 test_sample_num: 2048
 test_dist_threshold: 0.5
+query_normal_sigma: 0.5
+query_cnt_per_voxel: 64

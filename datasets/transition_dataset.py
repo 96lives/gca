@@ -4,6 +4,7 @@ import random
 import numpy as np
 import MinkowskiEngine as ME
 import shutil
+from baselines.config import get_inputs_field
 from glob import glob
 from tqdm import tqdm
 from datasets.base_dataset import BaseDataset
@@ -387,72 +388,164 @@ class SceneDataset(TransitionDataset):
 		for test_step, data in tqdm(enumerate(data_loader)):
 			batch_size = len(data['state_feat'])
 			gts = [gt.to(self.device) for gt in data['gt']]
-			if self.config.get('cache_only'):
-				self.cache(model, data, data['file_name'], step)
-			else:
-				final_pcs = []
-				cache_dicts = model.load_cache(step, data['file_name'])
-				test_sample_nums = [gt.shape[0] for gt in gts]
-				for trial, cache_dicts_single_trial in enumerate(cache_dicts):
-					s = model.cache_dicts2sparse_tensor(cache_dicts_single_trial)
-					pc, mesh_dict = model.get_pointcloud(s, test_sample_nums, return_mesh=True)
-					final_pcs.append(pc[list(pc.keys())[0]])
 
-					mesh_save_dir = os.path.join(
-						self.config['log_dir'], 'test_save',
-						'step-{}'.format(step), 'mesh'
-					)
-					for k, meshes in mesh_dict.items():
-						for batch_idx, mesh in enumerate(meshes):
-							file_name = data['file_name'][batch_idx]
-							mesh_path = os.path.join(mesh_save_dir, k, '{}_{}.obj'.format(file_name, trial))
-							os.makedirs(os.path.dirname(mesh_path), exist_ok=True)
-							if not os.path.exists(mesh_path):
-								mesh.export(mesh_path)
+			self.cache(model, data, data['file_name'], step)
+			torch.cuda.empty_cache()  # saves memory
+			final_pcs = []
+			cache_dicts = model.load_cache(step, data['file_name'])
+			test_sample_nums = [gt.shape[0] for gt in gts]
+			for trial, cache_dicts_single_trial in enumerate(cache_dicts):
+				s = model.cache_dicts2sparse_tensor(cache_dicts_single_trial)
+				pc, mesh_dict = model.get_pointcloud(s, test_sample_nums, return_mesh=True)
+				final_pcs.append(pc[list(pc.keys())[0]])
 
-				final_pcs = list(zip(*final_pcs))
-				partials = [p.to(self.device) * self.voxel_size for p in data['input_pc']]
-				for batch_idx in range(batch_size):
-					pred_coords_down = torch.stack(final_pcs[batch_idx], dim=0).to(self.device)
-					chamfer_l1 = compute_chamfer_l1(pred_coords_down, gts[batch_idx])
-					chamfer_l1 = np.array(chamfer_l1)
-					min_chamfer_l1.append(chamfer_l1.min())
-					mean_chamfer_l1.append(chamfer_l1.mean())
-					tmds.append(mutual_difference(pred_coords_down))
-					uhds.append(unidirected_hausdorff_distance(partials[batch_idx], pred_coords_down))
-					chamfer_l1s.append(chamfer_l1)
-				file_names.extend(data['file_name'])
-				torch.cuda.empty_cache()
-
-
-		if self.config.get('cache_only') is False:
-			# write to tensorboard
-			min_chamfer_l1 = np.array(min_chamfer_l1).mean()
-			mean_chamfer_l1 = np.array(mean_chamfer_l1).mean()
-			tmd = np.array(tmds).mean()
-			uhd = np.array(uhds).mean()
-			model.scalar_summaries['metrics/min_chamfer_l1'] += [min_chamfer_l1]
-			model.scalar_summaries['metrics/mean_chamfer_l1'] += [mean_chamfer_l1]
-			model.scalar_summaries['metrics/tmd'] += [tmd]
-			model.list_summaries['metrics/tmd_historgram'] += tmds
-			model.scalar_summaries['metrics/uhd'] += [uhd]
-			model.list_summaries['metrics/uhd_histogram'] += uhds
-			print(
-				'min_chamfer_l1: {}\nmean_chamfer_l1: {}\ntmd: {}\nuhd: {}'.format(
-					min_chamfer_l1, mean_chamfer_l1, tmd, uhd
+				mesh_save_dir = os.path.join(
+					self.config['log_dir'], 'test_save',
+					'step-{}'.format(step), 'mesh'
 				)
-			)
+				for k, meshes in mesh_dict.items():
+					for batch_idx, mesh in enumerate(meshes):
+						file_name = data['file_name'][batch_idx]
+						mesh_path = os.path.join(mesh_save_dir, k, '{}_{}.obj'.format(file_name, trial))
+						os.makedirs(os.path.dirname(mesh_path), exist_ok=True)
+						if not os.path.exists(mesh_path):
+							mesh.export(mesh_path)
 
-			# write to file
-			metrics_save_dir = os.path.join(
+			final_pcs = list(zip(*final_pcs))
+			partials = [p.to(self.device) * self.voxel_size for p in data['input_pc']]
+			for batch_idx in range(batch_size):
+				pred_coords_down = torch.stack(final_pcs[batch_idx], dim=0).to(self.device)
+				chamfer_l1 = compute_chamfer_l1(pred_coords_down, gts[batch_idx])
+				chamfer_l1 = np.array(chamfer_l1)
+				min_chamfer_l1.append(chamfer_l1.min())
+				mean_chamfer_l1.append(chamfer_l1.mean())
+				tmds.append(mutual_difference(pred_coords_down))
+				uhds.append(unidirected_hausdorff_distance(partials[batch_idx], pred_coords_down))
+				chamfer_l1s.append(chamfer_l1)
+			file_names.extend(data['file_name'])
+			torch.cuda.empty_cache()
+
+			cache_dir = os.path.join(
 				self.config['log_dir'], 'test_save',
-				'step-{}'.format(step),
+				'step-{}'.format(step), 'cache'
 			)
-			with open(os.path.join(metrics_save_dir, 'file_names.txt'), 'w') as f:
-				f.write('\n'.join(file_names))
-			np.savetxt(os.path.join(metrics_save_dir, 'chamfer_l1.txt'), np.concatenate(chamfer_l1s))
-			np.savetxt(os.path.join(metrics_save_dir, 'tmd.txt'), np.array(tmds))
-			np.savetxt(os.path.join(metrics_save_dir, 'uhd.txt'), np.array(uhds))
+			shutil.rmtree(cache_dir, ignore_errors=True)
+
+
+		# write to tensorboard
+		min_chamfer_l1 = np.array(min_chamfer_l1).mean()
+		mean_chamfer_l1 = np.array(mean_chamfer_l1).mean()
+		tmd = np.array(tmds).mean()
+		uhd = np.array(uhds).mean()
+		model.scalar_summaries['metrics/min_chamfer_l1'] += [min_chamfer_l1]
+		model.scalar_summaries['metrics/mean_chamfer_l1'] += [mean_chamfer_l1]
+		model.scalar_summaries['metrics/tmd'] += [tmd]
+		model.list_summaries['metrics/tmd_historgram'] += tmds
+		model.scalar_summaries['metrics/uhd'] += [uhd]
+		model.list_summaries['metrics/uhd_histogram'] += uhds
+		print(
+			'min_chamfer_l1: {}\nmean_chamfer_l1: {}\ntmd: {}\nuhd: {}'.format(
+				min_chamfer_l1, mean_chamfer_l1, tmd, uhd
+			)
+		)
+
+		# write to file
+		metrics_save_dir = os.path.join(
+			self.config['log_dir'], 'test_save',
+			'step-{}'.format(step),
+		)
+		with open(os.path.join(metrics_save_dir, 'file_names.txt'), 'w') as f:
+			f.write('\n'.join(file_names))
+		np.savetxt(os.path.join(metrics_save_dir, 'chamfer_l1.txt'), np.concatenate(chamfer_l1s))
+		np.savetxt(os.path.join(metrics_save_dir, 'tmd.txt'), np.array(tmds))
+		np.savetxt(os.path.join(metrics_save_dir, 'uhd.txt'), np.array(uhds))
 
 		model.write_dict_summaries(step)
 		model.train(training)
+
+
+class TransitionSyntheticRoomDataset(SceneDataset):
+	name = 'cgca_transition_synthetic_room'
+
+	def __init__(self, config: dict, mode: str):
+		TransitionDataset.__init__(self, config, mode)
+		self.data_root = config['data_root']
+		self.input_root = config['input_root']
+		self.embedding_root = config['embedding_root']
+
+		self.obj_min_rate = self.config['obj_min_rate']
+		self.rooms = config['rooms']
+		self.data_list = []
+
+		data_list_file_path = os.path.join(self.data_root, '{}.txt'.format(mode))
+		with open(data_list_file_path, 'r') as f:
+			self.data_list = f.read().splitlines()
+
+		if (mode == 'val') and (config['eval_size'] is not None):
+			# fix vis_indices
+			eval_size = config['eval_size']
+			if isinstance(eval_size, int):
+				val_indices = torch.linspace(0, len(self.data_list) - 1, eval_size).int().tolist()
+				self.data_list = [self.data_list[i] for i in val_indices]
+
+		self.fields = get_inputs_field(mode, self.config)
+
+	@change_feat
+	def __getitem__(self, idx):
+		if self.config['overfit_one_ex'] is not None:
+			idx = self.config['overfit_one_ex']
+
+		data_name = self.data_list[idx]
+		if self.mode == 'train':
+			model_path = os.path.join(
+				self.input_root, data_name.rsplit('/')[0], '%08d' % int(data_name.rsplit('/')[1])
+			)
+			field_data = self.fields.load(model_path, idx, 0, self.obj_min_rate)[None]
+		else:
+			model_path = os.path.join(
+				self.input_root, self.mode, data_name.rsplit('/')[0], '%08d' % int(data_name.rsplit('/')[1]),
+				'pointcloud_{}.npz'.format(self.obj_min_rate)
+			)
+			with np.load(model_path, 'r') as data:
+				data = dict(data)
+			field_data = data['points']
+		inputs = torch.tensor(field_data)
+
+		# obtain embeddings
+		rand_int = random.randint(0, 9)
+		postfix = '.npz' if self.mode != 'train' else '_{}.npz'.format(rand_int)
+		embedding_path = os.path.join(self.embedding_root, data_name + postfix)
+		with np.load(embedding_path, 'r') as embedding:
+			embedding = dict(embedding)
+
+		embedding_coord = torch.tensor(embedding['coord'])
+		embedding_feat = torch.tensor(embedding['feat'])
+
+		point_coord = inputs + embedding['translation'][:, :3]
+		state_coord = quantize(point_coord, self.voxel_size)
+		state_feat = torch.randn(state_coord.shape[0], self.z_dim)
+
+		ret = {
+			'input_pc': point_coord / self.config['voxel_size'],  # used for condition model
+			'state0_coord': None,  # used for condition model
+			'state0_feat': None,  # used for condition model
+			'state_coord': state_coord,
+			'state_feat': state_feat,
+			'embedding_coord': embedding_coord,
+			'embedding_feat': embedding_feat,
+			'file_name': data_name,
+			'phase': Phase(
+				self.config['max_phase'],
+				self.config['equilibrium_max_phase']
+			),
+		}
+
+		if self.mode == 'test':
+			# append surface points for testing
+			data_path = os.path.join(self.data_root, data_name + '.npz')
+			with np.load(data_path, 'r') as data:
+				data = dict(data)
+			gt = torch.tensor(data['surface'])
+			gt = gt[torch.randperm(gt.shape[0])[:self.config['test_sample_num']]]
+			ret['gt'] = gt
+		return ret

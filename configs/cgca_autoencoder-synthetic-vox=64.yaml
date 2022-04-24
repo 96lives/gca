@@ -8,7 +8,7 @@ eval_datasets: [
 test_datasets: [
   [cgca_autoencoder_synthetic_room, test]
 ]
-data_root: ./data/synthetic_room
+data_root: ./data/synthetic_room_sdf
 rooms: [room_04, room_05, room_06, room_07, room_08]
 implicit_rep: sdf  # either udf or occ
 data_dim: 3

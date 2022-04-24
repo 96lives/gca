@@ -9,7 +9,7 @@ test_datasets: [
   [cgca_transition_shapenet, test],
 ]
 data_root: ./data/cgca_shapenet
-embedding_root: ./data/embeddings/shapenet/sofa-vox_64-sdf-step_700k
+embedding_root:
 obj_class: sofa
 data_dim: 3
 
@@ -29,7 +29,7 @@ num_workers: 6
 #########
 # Model #
 #########
-model: cgca_transition
+model: gca
 padding: 3
 pad_type: hypercross
 z_dim: 32
@@ -40,8 +40,8 @@ backbone:
       3, 3, 3, 3, 3
   ]
   init_pretrained:
-  in_channels:
-  out_channels:
+  in_channels: 1
+  out_channels: 1
 
 max_phase: 30
 equilibrium_max_phase: 20
@@ -55,12 +55,6 @@ infusion_scheduler:
   initial_rate: 0.1
   speed: 0.005
 
-sigma_scheduler:
-  type: exponential
-  initial_rate: -1.
-  speed: -0.01
-
-embedding_loss_weight: 0.01
 batch_size: 32
 
 optimizer:
@@ -130,7 +124,7 @@ vis:
 #########
 device: cuda
 seed: 0
-empty_cache_step: 20
+empty_cache_step: 50
 
 #########
 # Debug #
@@ -158,10 +152,9 @@ max_eval_phase: 30
 test_step: 100000
 min_test_step: 200000
 test_batch_size: 2
-upsample: 4
-test_mode_seeking_phase: 5
+test_mode_seeking_phase: 0
 test_trials: 10
 test_dist_threshold: 0.5
-test_sample_nums: [2048]
+test_sample_nums: [2048, 16384]
 cache_only: True
 test_save_mesh: False

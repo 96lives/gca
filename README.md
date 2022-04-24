@@ -30,7 +30,7 @@ pip install torch==1.7.1+cu110 torchvision==0.8.2+cu110 -f https://download.pyto
 pip install torch==1.7.1 torchvision==0.8.2
 
 # install MinkowskiEngine (sparse tensor processing library)
-# the model was trained on v0.5.0, but the code runs on v0.5.4 (the latest version as of 22/04/18) as well
+# the model was trained on v0.5.0, but the code runs on v0.5.4 (the latest version as of 22/04/24) as well.
 conda install openblas-devel -c anaconda 
 export CXX=g++-7
 pip install -U git+https://github.com/NVIDIA/MinkowskiEngine -v --no-deps --install-option="--blas_include_dirs=${CONDA_PREFIX}/include" --install-option="--blas=openblas"
@@ -39,42 +39,51 @@ pip install -U git+https://github.com/NVIDIA/MinkowskiEngine -v --no-deps --inst
 pip install -r requirements.txt
 
 # install torch-scatter
-# for cuda 10.2 (--no-index option is quite crucial), for other cuda versions you can find installation guide in https://github.com/rusty1s/pytorch_scatter
+# for cuda 10.2 (for other cuda versions you can find installation guide in https://github.com/rusty1s/pytorch_scatter)
+# note that --no-index option might be crucial
 pip install --no-index torch-scatter -f https://pytorch-geometric.com/whl/torch-1.7.1+cu101.html
 ```
-The repo was tested with NVIDIA 2080ti GPU (11GB). 
+The repo was tested with NVIDIA 2080ti GPU (11GB). Note that MinkowskiEngine might be difficult to install, please see the issue of the MinkowskiEngine or this repo for help.
 
 
 
 
 2. **Data preparation and Pretrained Models**
 
-[TODO: Link] contains the datasets (sdf & preprocessed sparse voxel embedding) and pretrained models. Place the files with directory as below. We call the shapenet scene datasets as synthetic as abbreviation. 
+[Link](https://drive.google.com/drive/folders/1DID47BZBkPHKPhpPgpmZgM7GBoutqlPa?usp=sharing) contains the datasets (sdf & preprocessed sparse voxel embedding for ShapeNet, ShapnetNet scene) and pretrained models (GCA, cGCA, cGCA w/ cond.). Place the files with directory as below. This link contains all the data except for conv_onet (input point cloud of ShapeNet scene dataset), which can be downloaded from [here](https://github.com/autonomousvision/convolutional_occupancy_networks#synthetic-indoor-scene-dataset) and unzipped/renamed as `conv_onet` from `synthetic_room_dataset.zip`. All directories not specified as downloadable from conv_onet repo can be obtained from our google drive. Note that we call the Shapenet Scene datasets as synthetic as abbreviation.  
 
 ```
 \cgca
    - main.py
    ...
    - data/
-      - shapenet_sdf/
-      	- sofa
-      	- chair
-      	- table
-      - synthetic/ (we refer to shapenet scene as synthetic for abbreviation)
-      	- 
-      - embeddings/   (contains preprocessed sparse voxel embeddings)
-      	- shapenet/
-      		- sofa-vox_64-sdf-step_700k/
-         	- chair-vox_64-sdf-step_500k/
-         	- table-vox_64-sdf-step_500k/
-         - synthetic/
-         	- vox_64-step_100k/
+     - shapenet_sdf/ (won't need it unless if you want to start training from autoencoder)
+       - sofa
+       - chair
+       - table
+     - synthetic_room_sdf/ (won't need it unless if you want to start training from autoencoder)
+       - rooms_04/
+       - ....
+     - conv_onet/ (contains point cloud input, required for training transition model)
+       - rooms_04/ (should be downloaded from original conv_onet repo)
+       - rooms_05/ (should be downloaded from original conv_onet repo)
+       - rooms_06/ (should be downloaded from original conv_onet repo)
+       - rooms_07/ (should be downloaded from original conv_onet repo)
+       - rooms_08/ (should be downloaded from original conv_onet repo)
+       - val/ 
+       - test/
+     - embeddings/ (contains preprocessed sparse voxel embeddings, required for training transition mode, and pretrained autoencoders)
+       - shapenet/
+         - sofa-vox_64-sdf-step_700k/ 
+         - chair-vox_64-sdf-step_500k/
+         - table-vox_64-sdf-step_500k/
+       - synthetic/
+         - vox_64-step_100k/
    - pretrained_models/
-      - sofa_transition
-         ...
+     - ...
 ```
 
-For embeddings we use 10 random translations for data augmentation.
+Note that, for embeddings we use 10 random translations for data augmentation of the local latent codes.
 
 
 
@@ -91,10 +100,12 @@ We provide training scripts for GCA and cGCA on shapenet/shapenet scene dataset.
 You can train the GCA by running,  
 
 ```
-python main.py --config configs/gca-sofa.yaml -l log/gca-sofa
+python main.py --config configs/gca-shapenet-vox=64.yaml --override "obj_class=chair" -l log/gca-chair
 ```
 
-For other datasets/configurations you may use other configs. Note that GCA only uses the occupancies of the sparse voxels in the dataset, but the released dataset contains the local embeddings as well. If you want to create your own dataset, you only need coordinates of occupied cells of the surface.
+For other datasets/configurations you may use other configs. Here `config` flag is for determining the default config and `override` options provide the a functionality for overriding the values of the default configs, for example, in this case, `obj_class` to chair. You may want to override `obj_min_rate` to different values to reproduce the results of Table 1 from our paper.
+
+GCA only uses the occupancies of the sparse voxels in the dataset, but the released dataset contains the local embeddings as well for integration with cGCA. If you want to create your own dataset, you only need coordinates of occupied cells of the surface.
 
 
 
@@ -108,7 +119,7 @@ Training cGCA works in 2 steps.
 
 To train the autoencoder model, run
 ```
-python main.py --config configs/cgca_autoencoder-sofa.yaml -l log/autoencoder-sofa
+python main.py --config configs/cgca_autoencoder-shapenet-vox=64.yaml --override "obj_class=chair" -l log/autoencoder-chair
 ```
 
 2. **Training the cGCA transition model**
@@ -118,10 +129,12 @@ You do not need to train the autoencoder from scratch to train the transition mo
 To train the transition model, run
 
 ```
-python main.py --config configs/cgca_transition-sofa.yaml -l log/transition-sofa
+python main.py --config configs/cgca_transition-shapenet-vox=64.yaml --override "obj_class=chair" -l log/cgca-chair
 ```
 
-3. **Log visualization** 
+For other datasets/configurations you may use other configs. Here `config` flag is for determining the default config and `override` options provide the a functionality for overriding the values of the default configs, for example, in this case, `obj_class` to chair. You may want to override `obj_min_rate` to different values to reproduce the results of Table 1 from our paper.
+
+3. Log visualization** 
 
 The log files for the tensorboard visualization is available on the `log` directory.
 To view the logs, run
@@ -135,14 +148,16 @@ and enter the corresponding website with port on your web browser.
 
 # Testing 
 
-Download the pretrained models as described in the above.
-For example, to run shapenet sofa results, run
+Download the pretrained models as described in the above. If you only want to perform testing, 
+
+
+For example, to run shapenet chair results, run
 
 ```
-python main.py --test --resume-ckpt pretrained_models/sofa_transition/ckpts/ckpt-step-200000 -l log/sofa_test
+python main.py --test --resume-ckpt pretrained_models/sofa_transition/ckpts/ckpt-step-300000 -l log/chair_test
 ```
 
-This script 1) calculates the metrics used in the paper, 2) creates meshes in `log/sofa_test/step-199999/mesh` 3) creates images of voxels using matplotlib in `log/sofa_test/step-199999/vis`. For scene, we do not provide images.  
+This script 1) calculates the metrics reported in the paper, 2) creates meshes in `log/chair_test/step-199999/mesh` 3) creates images of voxels using matplotlib in `log/chair_test/step-199999/vis` .
 
 
 
