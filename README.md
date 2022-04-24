@@ -6,11 +6,11 @@
 
 ![Alt text](media/scene_completions.gif?raw=true "Title")
 
-This repository contains code for our work ["Learning to Generate 3D Shapes with Generative Cellular Automata"](https://openreview.net/forum?id=rABUmU3ulQh) and [Probabilistic Implicit Scene Completion](https://openreview.net/forum?id=BnQhMqDfcKG), which are accepted to ICLR 2021 and 2022 (spotlight), respectively. The first paper introduces a model named Generative Cellular Automata (GCA), which formulates the shape generation process as sampling from the transition kernel of a Markov chain, where the sampling chain eventually evolves to the full shape of the learned distribution. The transition kernel employs the local update rules of cellular automata, effectively reducing the search space in a high-resolution 3D grid space by exploiting the connectivity and sparsity of 3D shapes. 
+This repository contains code for our work ["Learning to Generate 3D Shapes with Generative Cellular Automata"](https://openreview.net/forum?id=rABUmU3ulQh) and ["Probabilistic Implicit Scene Completion"](https://openreview.net/forum?id=BnQhMqDfcKG), which are accepted to ICLR 2021 and 2022 (spotlight), respectively. The first paper introduces a model named Generative Cellular Automata (GCA), which formulates the shape generation process as sampling from the transition kernel of a Markov chain, where the sampling chain eventually evolves to the full shape of the learned distribution. The transition kernel employs the local update rules of cellular automata, effectively reducing the search space in a high-resolution 3D grid space by exploiting the connectivity and sparsity of 3D shapes. 
 
-The second paper introduces a model name continuous Generative Cellular Automata (cGCA), which extends GCA to produce continuous geometry from incomplete point cloud. Instead of learning a transition kernel on sparse voxels as in GCA, cGCA learns the transition kernel operating on sparse voxel embedding, which additionally contains a local latent code for each occupied cell. Decoding the last state (sparse voxel embedding) produces continuous surface. Since cGCA extends the scalability, our work is the first work to tackle the problem of completing multiple continuous surfaces in scene level. 
+The second paper introduces a model name continuous Generative Cellular Automata (cGCA), which extends GCA to produce continuous geometry from incomplete point cloud. Instead of learning a transition kernel on sparse voxels as in GCA, cGCA learns the transition kernel operating on sparse voxel embedding, which additionally contains a local latent code for each occupied cell. Decoding the last state (sparse voxel embedding) produces continuous surface. By extending the scalability of GCA, our work is the first work to tackle the problem of completing multiple continuous surfaces in scene level. 
 
-The repository currently contains pretrained models and datasets for the experiments on ShapeNet and ShapeNet scenes in [Probabilistic Implicit Scene Completion](https://openreview.net/forum?id=BnQhMqDfcKG). Please contact 96lives@snu.ac.kr if you have any questions :)
+The repository currently contains pretrained models and datasets for the experiments on ShapeNet and ShapeNet scenes in [Probabilistic Implicit Scene Completion](https://openreview.net/forum?id=BnQhMqDfcKG). We plan on releasing the experiments for 3DFront soon. Please contact 96lives@snu.ac.kr if you have any questions :)
 
 
 
@@ -57,7 +57,7 @@ The repo was tested with NVIDIA 2080ti GPU (11GB). Note that MinkowskiEngine mig
    - main.py
    ...
    - data/
-     - shapenet_sdf/ (won't need it unless if you want to start training from autoencoder)
+     - shapenet_sdf/ (contains surface and sdf points of shapenet objects)
        - sofa
        - chair
        - table
@@ -115,12 +115,16 @@ GCA only uses the occupancies of the sparse voxels in the dataset, but the relea
 
 Training cGCA works in 2 steps. 
 
+
+
 1. **Training autoencoder for sparse voxel embedding**
 
 To train the autoencoder model, run
 ```
 python main.py --config configs/cgca_autoencoder-shapenet-vox=64.yaml --override "obj_class=chair" -l log/autoencoder-chair
 ```
+
+
 
 2. **Training the cGCA transition model**
 
@@ -134,7 +138,8 @@ python main.py --config configs/cgca_transition-shapenet-vox=64.yaml --override 
 
 For other datasets/configurations you may use other configs. Here `config` flag is for determining the default config and `override` options provide the a functionality for overriding the values of the default configs, for example, in this case, `obj_class` to chair. You may want to override `obj_min_rate` to different values to reproduce the results of Table 1 from our paper.
 
-3. Log visualization** 
+
+**Log visualization** 
 
 The log files for the tensorboard visualization is available on the `log` directory.
 To view the logs, run
@@ -151,13 +156,13 @@ and enter the corresponding website with port on your web browser.
 Download the pretrained models as described in the above. If you only want to perform testing, 
 
 
-For example, to run shapenet chair results, run
+For example, to reproduce shapenet chair results, run
 
 ```
-python main.py --test --resume-ckpt pretrained_models/sofa_transition/ckpts/ckpt-step-300000 -l log/chair_test
+python main.py --test --resume-ckpt pretrained_models/cgca-chair/ckpts/ckpt-step-300000 -l log/chair_test
 ```
 
-This script 1) calculates the metrics reported in the paper, 2) creates meshes in `log/chair_test/step-199999/mesh` 3) creates images of voxels using matplotlib in `log/chair_test/step-199999/vis` .
+This script 1) calculates the metrics reported in the paper, 2) creates meshes in `log/chair_test/step-299999/mesh` 3) creates images of voxels using matplotlib in `log/chair_test/step-299999/vis` .
 
 
 

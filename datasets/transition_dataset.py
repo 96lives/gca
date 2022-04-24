@@ -469,17 +469,25 @@ class TransitionSyntheticRoomDataset(SceneDataset):
 
 	def __init__(self, config: dict, mode: str):
 		TransitionDataset.__init__(self, config, mode)
-		self.data_root = config['data_root']
+		self.data_root = config['data_root']  # not using this
 		self.input_root = config['input_root']
 		self.embedding_root = config['embedding_root']
 
 		self.obj_min_rate = self.config['obj_min_rate']
 		self.rooms = config['rooms']
-		self.data_list = []
 
-		data_list_file_path = os.path.join(self.data_root, '{}.txt'.format(mode))
-		with open(data_list_file_path, 'r') as f:
-			self.data_list = f.read().splitlines()
+		self.data_list = []
+		for room in self.rooms:
+			data_list_file_path = os.path.join(self.input_root, room, '{}.lst'.format(mode))
+			with open(data_list_file_path, 'r') as f:
+				data_list = [
+					os.path.join(room, data_name)
+					for data_name in f.read().splitlines()
+				]
+			self.data_list.extend(data_list)
+		# data_list_file_path = os.path.join(self.data_root, '{}.txt'.format(mode))
+		# with open(data_list_file_path, 'r') as f:
+		# 	self.data_list = f.read().splitlines()
 
 		if (mode == 'val') and (config['eval_size'] is not None):
 			# fix vis_indices
@@ -497,13 +505,14 @@ class TransitionSyntheticRoomDataset(SceneDataset):
 
 		data_name = self.data_list[idx]
 		if self.mode == 'train':
-			model_path = os.path.join(
-				self.input_root, data_name.rsplit('/')[0], '%08d' % int(data_name.rsplit('/')[1])
-			)
+			# model_path = os.path.join(
+			# 	self.input_root, data_name.rsplit('/')[0], '%08d' % int(data_name.rsplit('/')[1])
+			# )
+			model_path = os.path.join(self.input_root, data_name)
 			field_data = self.fields.load(model_path, idx, 0, self.obj_min_rate)[None]
 		else:
 			model_path = os.path.join(
-				self.input_root, self.mode, data_name.rsplit('/')[0], '%08d' % int(data_name.rsplit('/')[1]),
+				self.input_root, self.mode, data_name,
 				'pointcloud_{}.npz'.format(self.obj_min_rate)
 			)
 			with np.load(model_path, 'r') as data:
@@ -514,7 +523,11 @@ class TransitionSyntheticRoomDataset(SceneDataset):
 		# obtain embeddings
 		rand_int = random.randint(0, 9)
 		postfix = '.npz' if self.mode != 'train' else '_{}.npz'.format(rand_int)
-		embedding_path = os.path.join(self.embedding_root, data_name + postfix)
+		embedding_name = os.path.join(
+			data_name.split('/')[0],
+			str(int(data_name.split('/')[1]))
+		)
+		embedding_path = os.path.join(self.embedding_root, embedding_name + postfix)
 		with np.load(embedding_path, 'r') as embedding:
 			embedding = dict(embedding)
 
@@ -542,7 +555,7 @@ class TransitionSyntheticRoomDataset(SceneDataset):
 
 		if self.mode == 'test':
 			# append surface points for testing
-			data_path = os.path.join(self.data_root, data_name + '.npz')
+			data_path = os.path.join(self.input_root, self.mode, data_name, 'surface.npz')
 			with np.load(data_path, 'r') as data:
 				data = dict(data)
 			gt = torch.tensor(data['surface'])

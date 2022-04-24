@@ -8,10 +8,10 @@ eval_datasets: [
 test_datasets: [
   [cgca_transition_synthetic_room, test],
 ]
-data_root: ./data/synthetic_room
+data_root:  # we do not use this
 embedding_root: ./data/embeddings/synthetic/vox_64-step_100k
 input_root: ./data/conv_onet
-rooms: [room_04, room_05, room_06, room_07, room_08]
+rooms: [rooms_04, rooms_05, rooms_06, rooms_07, rooms_08]
 data_dim: 3
 
 input_type: 'pointcloud'
